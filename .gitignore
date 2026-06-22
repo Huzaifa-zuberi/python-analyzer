@@ -1,0 +1,9 @@
+bin/
+*.exe
+*.o
+__pycache__/
+.env
+venv/
+.venv/
+*.pyc
+.DS_Store

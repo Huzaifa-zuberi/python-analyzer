@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Python Analyzer v3.0</title>
+<style>
+:root {
+  --bg: #0b0d14;
+  --surface: #131620;
+  --card: #191d28;
+  --border: #252a3a;
+  --text: #e2e4eb;
+  --text-dim: #8a8fa8;
+  --accent: #6ef7c8;
+  --accent2: #a78bfa;
+  --accent3: #38bdf8;
+  --error: #f87171;
+  --warn: #fbbf24;
+  --editor-bg: #0f111a;
+  --gutter: #1a1e2b;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 20px;
+}
+h1 {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+h1 span { color: var(--accent); }
+.subtitle {
+  text-align: center;
+  font-size: .75rem;
+  color: var(--text-dim);
+  margin-bottom: 20px;
+  letter-spacing: .5px;
+}
+.subtitle span { color: var(--accent2); }
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+.panel-header h2 {
+  font-size: .8rem;
+  font-weight: 600;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.editor-panel { grid-column: 1 / -1; }
+.editor-wrapper {
+  display: flex;
+  position: relative;
+  min-height: 280px;
+}
+.gutter {
+  width: 48px;
+  background: var(--gutter);
+  border-right: 1px solid var(--border);
+  padding: 12px 0;
+  text-align: right;
+  user-select: none;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.gutter div {
+  padding: 0 10px 0 14px;
+  font-size: .78rem;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+.code-area {
+  flex: 1;
+  background: var(--editor-bg);
+  color: var(--text);
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 12px 16px;
+  font-family: inherit;
+  font-size: .85rem;
+  line-height: 1.6;
+  tab-size: 4;
+  white-space: pre;
+  overflow: auto;
+  min-height: 280px;
+}
+.code-area::placeholder { color: #3a3f55; }
+.toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.btn {
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: .8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .15s;
+  background: var(--card);
+  color: var(--text);
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn-primary {
+  background: var(--accent);
+  color: #0b0d14;
+  border-color: var(--accent);
+}
+.btn-primary:hover { background: #5de6b4; }
+.btn-secondary { color: var(--text-dim); }
+.btn-secondary:hover { color: var(--text); }
+.btn-load {
+  background: var(--card);
+  color: var(--accent2);
+  border-color: var(--accent2);
+}
+.btn-load:hover { background: var(--accent2); color: #0b0d14; }
+
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+.tab {
+  padding: 9px 18px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: .78rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  border-bottom: 2px solid transparent;
+  transition: all .15s;
+}
+.tab:hover { color: var(--text); }
+.tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.tab-content { display: none; padding: 12px 16px; max-height: 400px; overflow: auto; }
+.tab-content.active { display: block; }
+
+/* Token styling */
+.token-line { margin-bottom: 6px; }
+.token-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 4px 2px 0;
+  padding: 2px 8px;
+  background: var(--card);
+  border-radius: 4px;
+  font-size: .8rem;
+  border: 1px solid var(--border);
+}
+.token-val { color: var(--text); }
+.token-type { color: var(--text-dim); font-size: .7rem; }
+.token-type.kw { color: var(--accent2); }
+.token-type.id { color: var(--accent3); }
+.token-type.num { color: var(--accent); }
+.token-type.str { color: #facc15; }
+.token-type.op { color: var(--warn); }
+.token-type.sym { color: var(--error); }
+
+/* Symbol table */
+.sym-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .8rem;
+}
+.sym-table th {
+  text-align: left;
+  padding: 6px 10px;
+  background: var(--card);
+  color: var(--text-dim);
+  font-weight: 500;
+  font-size: .72rem;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  border-bottom: 1px solid var(--border);
+}
+.sym-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.sym-table tr:hover td { background: rgba(255,255,255,.03); }
+.scope-header {
+  padding: 8px 10px;
+  margin-top: 12px;
+  margin-bottom: 4px;
+  background: var(--card);
+  border-radius: 6px;
+  font-size: .8rem;
+  border-left: 3px solid var(--accent);
+}
+.scope-header strong { color: var(--accent); }
+.scope-meta { color: var(--text-dim); font-size: .72rem; margin-top: 2px; }
+
+/* Diagnostics */
+.diag-item {
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  border-left: 3px solid;
+  font-size: .8rem;
+}
+.diag-item.error {
+  background: rgba(248,113,113,.08);
+  border-color: var(--error);
+}
+.diag-item.warn {
+  background: rgba(251,191,36,.08);
+  border-color: var(--warn);
+}
+.diag-level {
+  font-weight: 600;
+  font-size: .7rem;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.diag-item.error .diag-level { color: var(--error); }
+.diag-item.warn .diag-level { color: var(--warn); }
+.diag-msg { margin: 3px 0; }
+.diag-code {
+  font-size: .78rem;
+  padding: 4px 8px;
+  background: var(--editor-bg);
+  border-radius: 4px;
+  margin-top: 4px;
+  color: var(--text-dim);
+}
+.diag-fix {
+  margin-top: 4px;
+  color: var(--accent);
+  font-size: .75rem;
+}
+.diag-empty {
+  text-align: center;
+  color: var(--text-dim);
+  padding: 24px 0;
+  font-size: .85rem;
+}
+.stats {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 20px;
+  text-align: center;
+  min-width: 100px;
+}
+.stat-card .num {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+.stat-card .label {
+  font-size: .65rem;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+.stat-card .num.error-num { color: var(--error); }
+.stat-card .num.warn-num { color: var(--warn); }
+.stat-card .num.tok-num { color: var(--accent3); }
+.stat-card .num.sym-num { color: var(--accent2); }
+
+.section-title {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: .75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.token-header-line {
+  color: var(--accent3);
+  font-weight: 500;
+  font-size: .78rem;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+.empty-state {
+  color: var(--text-dim);
+  text-align: center;
+  padding: 40px 20px;
+  font-size: .9rem;
+}
+.empty-state .icon { font-size: 2rem; margin-bottom: 8px; opacity: .5; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--surface); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #3a3f55; }
+
+@media (max-width: 768px) {
+  .container { grid-template-columns: 1fr; }
+  .toolbar { flex-wrap: wrap; }
+}
+</style>
+</head>
+<body>
+
+<h1>Python <span>Analyzer</span> v3.0</h1>
+<div class="subtitle">Enhanced Error Detection &bull; Symbol Table &bull; Token Analysis &bull; <span>Compiler Construction</span></div>
+
+<div class="container">
+
+  <div class="panel editor-panel">
+    <div class="panel-header">
+      <h2>Source Code</h2>
+      <div class="toolbar">
+        <button class="btn btn-load" onclick="loadExample()">Load Example</button>
+        <button class="btn btn-secondary" onclick="clearAll()">Clear</button>
+        <button class="btn btn-primary" onclick="analyze()">Analyze</button>
+      </div>
+    </div>
+    <div class="editor-wrapper">
+      <div class="gutter" id="gutter"></div>
+      <textarea class="code-area" id="codeInput" placeholder="# Enter Python code here..." spellcheck="false" oninput="syncGutter()" onscroll="syncScroll()"></textarea>
+    </div>
+  </div>
+
+  <div class="panel" style="grid-column:1/-1">
+    <div class="tabs">
+      <button class="tab active" data-tab="tokens" onclick="switchTab('tokens')">Token Analysis</button>
+      <button class="tab" data-tab="symbols" onclick="switchTab('symbols')">Symbol Tables</button>
+      <button class="tab" data-tab="diagnostics" onclick="switchTab('diagnostics')">Diagnostics</button>
+    </div>
+    <div class="tab-content active" id="tab-tokens">
+      <div class="empty-state" id="emptyTokens">
+        <div class="icon">&#9881;</div>
+        Enter Python code above and click <strong>Analyze</strong>
+      </div>
+      <div id="tokenOutput" style="display:none"></div>
+    </div>
+    <div class="tab-content" id="tab-symbols">
+      <div class="empty-state" id="emptySymbols">
+        <div class="icon">&#9783;</div>
+        Run analysis to see symbol tables
+      </div>
+      <div id="symbolOutput" style="display:none"></div>
+    </div>
+    <div class="tab-content" id="tab-diagnostics">
+      <div class="empty-state" id="emptyDiags">
+        <div class="icon">&#9888;</div>
+        Run analysis to see diagnostics
+      </div>
+      <div id="diagOutput" style="display:none"></div>
+    </div>
+  </div>
+
+  <div class="stats" id="statsBar" style="display:none">
+    <div class="stat-card"><div class="num tok-num" id="statTokens">0</div><div class="label">Tokens</div></div>
+    <div class="stat-card"><div class="num sym-num" id="statSymbols">0</div><div class="label">Symbols</div></div>
+    <div class="stat-card"><div class="num error-num" id="statErrors">0</div><div class="label">Errors</div></div>
+    <div class="stat-card"><div class="num warn-num" id="statWarnings">0</div><div class="label">Warnings</div></div>
+  </div>
+
+</div>
+
+<script>
+// =========================================================================
+// FRONTEND — PYTHON ANALYZER v3.0 (JS Port)
+// =========================================================================
+
+// -------- GUTTER SYNC --------
+function syncGutter() {
+  const el = document.getElementById('codeInput');
+  const gutter = document.getElementById('gutter');
+  const lines = el.value.split('\n');
+  gutter.innerHTML = lines.map((_, i) => `<div>${i + 1}</div>`).join('');
+}
+function syncScroll() {
+  const el = document.getElementById('codeInput');
+  document.getElementById('gutter').scrollTop = el.scrollTop;
+}
+document.addEventListener('DOMContentLoaded', syncGutter);
+
+// -------- TAB SWITCHING --------
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === 'tab-' + name));
+}
+
+// -------- TOKEN TYPES --------
+const TOK_KEYWORD = 0;
+const TOK_IDENTIFIER = 1;
+const TOK_NUMBER = 2;
+const TOK_STRING = 3;
+const TOK_OPERATOR = 4;
+const TOK_SYMBOL = 5;
+const TOK_INDENT = 6;
+const TOK_UNKNOWN = 7;
+
+const KEYWORDS = new Set([
+  'if','else','elif','for','while','def','class','return',
+  'import','from','as','pass','break','continue','lambda',
+  'with','try','except','finally','raise','yield','global',
+  'nonlocal','del','assert','and','or','not','in','is',
+  'True','False','None'
+]);
+
+const BUILTINS = new Set([
+  'print','input','range','len','int','float','str','list',
+  'dict','set','tuple','type','open','sum','max','min','abs',
+  'enumerate','zip','map','filter','sorted','reversed','append',
+  'extend','pop','get','items','keys','values','split','join',
+  'strip','upper','lower','format','isinstance','hasattr'
+]);
+
+function tokenTypeName(t) {
+  switch(t) {
+    case TOK_KEYWORD: return 'keyword';
+    case TOK_IDENTIFIER: return 'identifier';
+    case TOK_NUMBER: return 'number';
+    case TOK_STRING: return 'string';
+    case TOK_OPERATOR: return 'operator';
+    case TOK_SYMBOL: return 'symbol';
+    case TOK_INDENT: return 'indent';
+    default: return 'unknown';
+  }
+}
+
+function tokenTypeClass(t) {
+  switch(t) {
+    case TOK_KEYWORD: return 'kw';
+    case TOK_IDENTIFIER: return 'id';
+    case TOK_NUMBER: return 'num';
+    case TOK_STRING: return 'str';
+    case TOK_OPERATOR: return 'op';
+    case TOK_SYMBOL: return 'sym';
+    default: return '';
+  }
+}
+
+// -------- TOKENIZER --------
+function tokenize(source) {
+  const tokens = [];
+  let pos = 0, lineNum = 1, columnNum = 1;
+  const s = source;
+
+  while (pos < s.length) {
+    const ch = s[pos];
+
+    if (ch === ' ' || ch === '\t') { pos++; columnNum++; continue; }
+    if (ch === '\n') { pos++; lineNum++; columnNum = 1; continue; }
+    if (ch === '\r') { pos++; if (s[pos] === '\n') { pos++; lineNum++; columnNum = 1; } continue; }
+
+    // Comments
+    if (ch === '#') {
+      while (pos < s.length && s[pos] !== '\n') pos++;
+      continue;
+    }
+
+    const tok = { value: '', type: TOK_UNKNOWN, line: lineNum, column: columnNum };
+
+    // String prefix detection
+    let hasPrefix = false;
+    if (/[a-zA-Z]/.test(s[pos])) {
+      const first = s[pos];
+      const second = pos + 1 < s.length ? s[pos + 1] : '';
+      const isSingle = /^[fFrRbBuU]$/.test(first);
+      const isDouble = isSingle && /^[rRfFbB]$/.test(second) &&
+        ((/^[fF]$/.test(first) && /^[rR]$/.test(second)) ||
+         (/^[rR]$/.test(first) && /^[fF]$/.test(second)) ||
+         (/^[bB]$/.test(first) && /^[rR]$/.test(second)) ||
+         (/^[rR]$/.test(first) && /^[bB]$/.test(second)));
+      const quotePos = pos + (isDouble ? 2 : isSingle ? 1 : 0);
+      if (quotePos < s.length && (s[quotePos] === '"' || s[quotePos] === "'")) {
+        hasPrefix = true;
+      }
+    }
+
+    // Strings
+    if (ch === '"' || ch === "'" || hasPrefix) {
+      let quotePos = pos;
+      while (quotePos < s.length && s[quotePos] !== '"' && s[quotePos] !== "'") quotePos++;
+      if (quotePos >= s.length) { tok.value = 'UNTERMINATED_STRING'; tok.type = TOK_UNKNOWN; tokens.push(tok); break; }
+      const quote = s[quotePos];
+      while (pos <= quotePos) { tok.value += s[pos]; pos++; columnNum++; }
+      while (pos < s.length && s[pos] !== quote) {
+        if (s[pos] === '\n') { tok.type = TOK_UNKNOWN; tok.value = 'UNTERMINATED_STRING'; tokens.push(tok); return tokens; }
+        if (s[pos] === '\\' && pos + 1 < s.length) { tok.value += s[pos] + s[pos + 1]; pos += 2; columnNum += 2; }
+        else { tok.value += s[pos]; pos++; columnNum++; }
+      }
+      if (pos < s.length) { tok.value += s[pos]; pos++; columnNum++; tok.type = TOK_STRING; }
+      else { tok.type = TOK_UNKNOWN; tok.value = 'UNTERMINATED_STRING'; }
+      tokens.push(tok);
+      continue;
+    }
+
+    // Numbers
+    if (/[0-9]/.test(ch) || (ch === '-' && pos + 1 < s.length && /[0-9]/.test(s[pos + 1]))) {
+      tok.value += ch; pos++; columnNum++;
+      let hasDot = false;
+      while (pos < s.length && (/[0-9]/.test(s[pos]) || s[pos] === '.')) {
+        if (s[pos] === '.') { if (hasDot) break; hasDot = true; }
+        tok.value += s[pos]; pos++; columnNum++;
+      }
+      tok.type = TOK_NUMBER;
+      tokens.push(tok);
+      continue;
+    }
+
+    // Identifiers & keywords
+    if (/[a-zA-Z_]/.test(ch)) {
+      while (pos < s.length && /[a-zA-Z0-9_]/.test(s[pos])) { tok.value += s[pos]; pos++; columnNum++; }
+      tok.type = KEYWORDS.has(tok.value) ? TOK_KEYWORD : TOK_IDENTIFIER;
+      tokens.push(tok);
+      continue;
+    }
+
+    // Operators
+    if (/[=+\-*\/%<>\!&|^]/.test(ch)) {
+      tok.value += ch; pos++; columnNum++;
+      if (pos < s.length && /[=<>\/*+\-]/.test(s[pos]) && (s[pos] === '=' || s[pos] === '<' || s[pos] === '>' || s[pos] === '/' || s[pos] === '*')) {
+        tok.value += s[pos]; pos++; columnNum++;
+      }
+      if (tok.value === '//' || tok.value === '**') { /* fine */ }
+      tok.type = TOK_OPERATOR;
+      tokens.push(tok);
+      continue;
+    }
+
+    // Symbols
+    if (/[()\[\]{}:.,;@~]/.test(ch)) {
+      tok.value += ch; pos++; columnNum++; tok.type = TOK_SYMBOL;
+      tokens.push(tok);
+      continue;
+    }
+
+    // Unknown
+    tok.value += ch; pos++; columnNum++; tok.type = TOK_UNKNOWN;
+    tokens.push(tok);
+  }
+  return tokens;
+}
+
+// -------- HELPERS --------
+function trim(s) { return s.replace(/^[\s\r\n]+|[\s\r\n]+$/g, ''); }
+
+function getIndent(line) {
+  let c = 0;
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] === ' ') c++;
+    else if (line[i] === '\t') c += 4;
+    else break;
+  }
+  return c;
+}
+
+function inferType(val) {
+  if (!val || val === 'None') return 'NoneType';
+  if (val === 'True' || val === 'False') return 'bool';
+  if ((val[0] === '"' && val[val.length - 1] === '"') || (val[0] === "'" && val[val.length - 1] === "'")) return 'str';
+  if (val[0] === '[') return 'list';
+  if (val[0] === '(') return 'tuple';
+  if (val[0] === '{' && val.includes(':')) return 'dict';
+  if (val[0] === '{') return 'set';
+  let hasDot = false, isNum = true;
+  for (let i = (val[0] === '-' ? 1 : 0); i < val.length; i++) {
+    if (val[i] === '.') hasDot = true;
+    else if (!/[0-9]/.test(val[i])) { isNum = false; break; }
+  }
+  if (isNum && hasDot) return 'float';
+  if (isNum && !hasDot && val.length > 0) return 'int';
+  return 'object/ref';
+}
+
+function isIdentifierStart(ch) { return /[a-zA-Z_]/.test(ch); }
+
+// -------- ANALYZER --------
+class PythonAnalyzer {
+  constructor(source) {
+    this.source = source;
+    this.lines = source.split('\n');
+    this.allTokens = [];
+    this.diagnostics = [];
+    this.allScopes = [];
+    this.currentScope = null;
+    this.scopeCounter = 0;
+    this.indentStack = [0];
+
+    // Build global scope
+    const global = {
+      scopeName: 'global',
+      scopeType: 'global',
+      indentLevel: 0,
+      symbols: {},
+      parameters: [],
+      parent: null,
+      children: []
+    };
+    this.allScopes.push(global);
+    this.currentScope = global;
+    this.scopeStack = [global];
+  }
+
+  addDiag(level, ln, col, msg, rec) {
+    const d = { level, lineNumber: ln, column: col, message: msg, recovery: rec || '', codeSnippet: '' };
+    if (ln > 0 && ln <= this.lines.length) d.codeSnippet = this.lines[ln - 1];
+    this.diagnostics.push(d);
+  }
+
+  markFStringVariables(fstr) {
+    let p = fstr.indexOf('{');
+    while (p !== -1) {
+      const end = fstr.indexOf('}', p);
+      if (end === -1) break;
+      const expr = fstr.substring(p + 1, end);
+      const inner = tokenize(expr);
+      for (const t of inner) {
+        if (t.type === TOK_IDENTIFIER) {
+          const name = t.value;
+          if (BUILTINS.has(name) || KEYWORDS.has(name) || name === 'self') continue;
+          let s = this.currentScope;
+          while (s) {
+            if (s.symbols[name]) {
+              s.symbols[name].usageCount++;
+              break;
+            }
+            s = s.parent;
+          }
+        }
+      }
+      p = fstr.indexOf('{', p + 1);
+    }
+  }
+
+  checkIndentation(raw, lineNum, prevIndent) {
+    const currentIndent = getIndent(raw);
+    const clean = trim(raw);
+    if (!clean || clean[0] === '#') return;
+
+    if (currentIndent % 4 !== 0 && currentIndent > 0) {
+      this.addDiag('warn', lineNum, 0,
+        'Indentation should be multiple of 4 spaces (style recommendation)',
+        'Use 4 spaces per indentation level');
+    }
+
+    const top = this.indentStack[this.indentStack.length - 1];
+    if (currentIndent < top) {
+      while (this.indentStack.length > 1 && this.indentStack[this.indentStack.length - 1] > currentIndent) {
+        this.indentStack.pop();
+      }
+      if (this.indentStack[this.indentStack.length - 1] !== currentIndent) {
+        this.addDiag('error', lineNum, 0, 'Inconsistent indentation', 'Indentation must match previous block level');
+        this.indentStack.push(currentIndent);
+      }
+    } else if (currentIndent > top) {
+      this.indentStack.push(currentIndent);
+    }
+
+    if (currentIndent > prevIndent && prevIndent >= 0) {
+      let prevLine = lineNum - 2;
+      while (prevLine >= 0) {
+        const prevClean = trim(this.lines[prevLine]);
+        if (prevClean && prevClean[0] !== '#') {
+          const last = prevClean[prevClean.length - 1];
+          if (last !== ':' &&
+              !prevClean.startsWith('for') && !prevClean.startsWith('if') &&
+              !prevClean.startsWith('while') && !prevClean.startsWith('def') &&
+              !prevClean.startsWith('class') && !prevClean.startsWith('try') &&
+              !prevClean.startsWith('except') && !prevClean.startsWith('elif') &&
+              !prevClean.startsWith('else') && !prevClean.startsWith('with')) {
+            this.addDiag('error', lineNum, 0, 'Unexpected indentation', "Add a colon ':' at the end of the previous line");
+          }
+          break;
+        }
+        prevLine--;
+      }
+    }
+  }
+
+  checkSyntaxErrors(raw, lineNum) {
+    const clean = trim(raw);
+    if (!clean || clean[0] === '#') return;
+
+    if ((clean.startsWith('def ') || clean.startsWith('class ') ||
+         clean.startsWith('if ') || clean.startsWith('elif ') ||
+         clean.startsWith('else') || clean.startsWith('for ') ||
+         clean.startsWith('while ') || clean.startsWith('try:') ||
+         clean.startsWith('except') || clean.startsWith('with ')) &&
+        clean[clean.length - 1] !== ':' && !clean.includes(':')) {
+      this.addDiag('error', lineNum, 0, "Missing colon ':' at end of statement", "Add ':' at the end: " + clean + ':');
+    }
+
+    let paren = 0, brack = 0, brace = 0;
+    let inStr = false, strChar = '', escape = false;
+    for (let i = 0; i < clean.length; i++) {
+      const c = clean[i];
+      if (escape) { escape = false; continue; }
+      if (c === '\\') { escape = true; continue; }
+      if (c === '"' || c === "'") {
+        if (!inStr) { inStr = true; strChar = c; }
+        else if (c === strChar) inStr = false;
+        continue;
+      }
+      if (inStr) continue;
+      if (c === '(') paren++;
+      else if (c === ')') paren--;
+      else if (c === '[') brack++;
+      else if (c === ']') brack--;
+      else if (c === '{') brace++;
+      else if (c === '}') brace--;
+    }
+    if (paren > 0) this.addDiag('error', lineNum, 0, "Unmatched opening parenthesis '('", "Add closing parenthesis ')'");
+    else if (paren < 0) this.addDiag('error', lineNum, 0, "Unmatched closing parenthesis ')'", "Remove extra ')' or add '('");
+    if (brack > 0) this.addDiag('error', lineNum, 0, "Unmatched opening bracket '['", "Add closing bracket ']'");
+    else if (brack < 0) this.addDiag('error', lineNum, 0, "Unmatched closing bracket ']'", "Remove extra ']' or add '['");
+    if (brace > 0) this.addDiag('error', lineNum, 0, "Unmatched opening brace '{'", "Add closing brace '}'");
+    else if (brace < 0) this.addDiag('error', lineNum, 0, "Unmatched closing brace '}'", "Remove extra '}' or add '{'");
+  }
+
+  isAssignmentLHS(tokens, index) {
+    let eqIdx = -1;
+    for (let j = 0; j < tokens.length; j++) {
+      if (tokens[j].type === TOK_OPERATOR && tokens[j].value === '=') { eqIdx = j; break; }
+    }
+    return eqIdx !== -1 && index < eqIdx;
+  }
+
+  isLoopVar(tokens, index) {
+    let hasFor = false;
+    for (let j = 0; j < index; j++) {
+      if (tokens[j].type === TOK_KEYWORD && tokens[j].value === 'for') { hasFor = true; break; }
+    }
+    let hasIn = false;
+    for (let j = index + 1; j < tokens.length; j++) {
+      if (tokens[j].type === TOK_KEYWORD && tokens[j].value === 'in') { hasIn = true; break; }
+    }
+    return hasFor && hasIn;
+  }
+
+  checkVariableDefinition(raw, lineNum, scope) {
+    const clean = trim(raw);
+    if (!clean || clean[0] === '#') return;
+    const tokens = tokenize(raw);
+
+    for (const tok of tokens) {
+      if (tok.type === TOK_STRING) {
+        const v = tok.value;
+        if (v.length >= 2 && (v[0] === 'f' || v[0] === 'F')) this.markFStringVariables(v);
+      }
+    }
+
+    if (tokens.length > 0 && tokens[0].type === TOK_KEYWORD &&
+        ['def','class','import','from','global','nonlocal'].includes(tokens[0].value)) return;
+
+    for (let i = 0; i < tokens.length; i++) {
+      const tok = tokens[i];
+      if (tok.type === TOK_IDENTIFIER) {
+        const name = tok.value;
+        if (BUILTINS.has(name) || KEYWORDS.has(name) || name === 'self') continue;
+        const isAss = this.isAssignmentLHS(tokens, i);
+        const isFor = this.isLoopVar(tokens, i);
+        if (!isAss && !isFor) {
+          let defined = false;
+          let s = scope;
+          while (s) {
+            if (s.symbols[name]) { defined = true; break; }
+            s = s.parent;
+          }
+          if (!defined) {
+            this.addDiag('error', lineNum, tok.column,
+              "Undefined variable: '" + name + "'",
+              "Define '" + name + "' before using it");
+          }
+        }
+      }
+    }
+  }
+
+  checkAssignmentErrors(raw, lineNum) {
+    const clean = trim(raw);
+    if (!clean || clean[0] === '#') return;
+    const eqPos = clean.indexOf('=');
+    if (eqPos !== -1) {
+      const lhs = trim(clean.substring(0, eqPos));
+      if (lhs && !isIdentifierStart(lhs[0])) {
+        this.addDiag('error', lineNum, 0, "Invalid assignment target: '" + lhs + "'", 'Use a valid variable name');
+      }
+      const rhs = trim(clean.substring(eqPos + 1));
+      if (!rhs || rhs.startsWith('=')) {
+        this.addDiag('error', lineNum, 0, 'Missing value in assignment', 'Provide a value: ' + lhs + ' = <value>');
+      }
+      if (KEYWORDS.has(lhs)) {
+        this.addDiag('error', lineNum, 0, "Cannot assign to keyword: '" + lhs + "'", 'Use a different variable name');
+      }
+    }
+  }
+
+  checkControlFlow(raw, lineNum, inLoop) {
+    const clean = trim(raw);
+    if (!clean || clean[0] === '#') return;
+    if (clean.startsWith('break') || clean.startsWith('continue')) {
+      if (!inLoop) {
+        this.addDiag('error', lineNum, 0, "'" + clean + "' outside loop", "Use 'break' or 'continue' only inside loops");
+      }
+    }
+  }
+
+  checkFunctionDefinition(raw, lineNum) {
+    const clean = trim(raw);
+    if (!clean || clean[0] === '#') return;
+    if (clean.startsWith('def ')) {
+      const nameStart = 4;
+      const nameEnd = clean.indexOf('(', nameStart);
+      if (nameEnd === -1) {
+        this.addDiag('error', lineNum, 0, 'Invalid function definition', 'Use: def function_name(params):');
+        return;
+      }
+      const funcName = trim(clean.substring(nameStart, nameEnd));
+      if (funcName && !isIdentifierStart(funcName[0])) {
+        this.addDiag('error', lineNum, 0, "Invalid function name: '" + funcName + "'", 'Function names must start with a letter or underscore');
+      }
+      const paramEnd = clean.indexOf(')', nameEnd);
+      if (paramEnd === -1) {
+        this.addDiag('error', lineNum, 0, 'Unclosed parameter list', "Add closing ')' for function parameters");
+      }
+    }
+  }
+
+  checkImportErrors(raw, lineNum) {
+    const clean = trim(raw);
+    if (!clean || clean[0] === '#') return;
+    if (clean.startsWith('import ')) {
+      const mod = trim(clean.substring(6));
+      if (!mod) this.addDiag('error', lineNum, 0, 'Missing module name in import', 'Use: import module_name');
+    }
+    if (clean.startsWith('from ')) {
+      if (!clean.includes(' import ')) {
+        this.addDiag('error', lineNum, 0, 'Invalid from-import statement', 'Use: from module import name');
+      }
+    }
+  }
+
+  parseFunctionParams(line, scope, lineNum) {
+    const op = line.indexOf('('), cp = line.indexOf(')');
+    if (op === -1 || cp === -1) return;
+    const paramStr = line.substring(op + 1, cp);
+    if (!paramStr.trim()) return;
+    for (let p of paramStr.split(',')) {
+      p = trim(p);
+      if (!p) continue;
+      const eq = p.indexOf('=');
+      const pname = eq !== -1 ? trim(p.substring(0, eq)) : p;
+      const pval = eq !== -1 ? trim(p.substring(eq + 1)) : '?';
+      const col = pname.indexOf(':');
+      const cleanName = col !== -1 ? trim(pname.substring(0, col)) : pname;
+      if (cleanName && cleanName !== 'self') {
+        scope.symbols[cleanName] = {
+          name: cleanName,
+          value: pval === '?' ? '<arg>' : pval,
+          inferredType: pval === '?' ? 'parameter' : inferType(pval),
+          declaredLine: lineNum,
+          usageCount: 0,
+          isParameter: true,
+          isMutable: false,
+          isDefined: true
+        };
+        scope.parameters.push(cleanName);
+      }
+    }
+  }
+
+  insertSymbol(name, val, type, lineNum, isParam) {
+    if (this.currentScope.symbols[name]) {
+      this.currentScope.symbols[name].value = val;
+      this.currentScope.symbols[name].inferredType = type;
+      this.currentScope.symbols[name].isMutable = true;
+      this.currentScope.symbols[name].usageCount++;
+      this.currentScope.symbols[name].isDefined = true;
+    } else {
+      this.currentScope.symbols[name] = {
+        name, value: val, inferredType: type,
+        declaredLine: lineNum, usageCount: 0,
+        isParameter: !!isParam, isMutable: false, isDefined: true
+      };
+    }
+  }
+
+  detectScopeType(line) {
+    if (line.startsWith('def ')) return 'function';
+    if (line.startsWith('class ')) return 'class';
+    if (line.startsWith('if ')) return 'conditional';
+    if (line.startsWith('elif ')) return 'conditional';
+    if (line.startsWith('else')) return 'conditional';
+    if (line.startsWith('for ')) return 'loop';
+    if (line.startsWith('while ')) return 'loop';
+    if (line.startsWith('try')) return 'exception';
+    if (line.startsWith('except')) return 'exception';
+    return 'block';
+  }
+
+  validateScopes() {
+    for (const scope of this.allScopes) {
+      for (const name in scope.symbols) {
+        const sym = scope.symbols[name];
+        if (sym.usageCount === 0 && !sym.isParameter) {
+          this.addDiag('warn', sym.declaredLine, 0,
+            "Unused variable: '" + sym.name + "'",
+            'Consider removing or using this variable');
+        }
+      }
+    }
+  }
+
+  analyze() {
+    this.indentStack = [0];
+    this.allTokens = [];
+    this.diagnostics = [];
+    this.allScopes = [];
+    this.scopeCounter = 0;
+
+    const global = {
+      scopeName: 'global',
+      scopeType: 'global',
+      indentLevel: 0,
+      symbols: {},
+      parameters: [],
+      parent: null,
+      children: []
+    };
+    this.allScopes.push(global);
+    this.currentScope = global;
+    this.scopeStack = [global];
+
+    // PASS 1: Tokenize
+    for (let i = 0; i < this.lines.length; i++) {
+      const raw = this.lines[i];
+      const cl = trim(raw);
+      if (!cl || cl[0] === '#') continue;
+      const toks = tokenize(raw);
+      for (const t of toks) this.allTokens.push(t);
+    }
+
+    // PASS 2: Error checking
+    let inLoop = false;
+    let prevIndent = 0;
+
+    for (let i = 0; i < this.lines.length; i++) {
+      const raw = this.lines[i];
+      const clean = trim(raw);
+      const lineNum = i + 1;
+      if (!clean || clean[0] === '#') continue;
+
+      this.checkIndentation(raw, lineNum, prevIndent);
+      prevIndent = getIndent(raw);
+      this.checkSyntaxErrors(raw, lineNum);
+      this.checkAssignmentErrors(raw, lineNum);
+      this.checkFunctionDefinition(raw, lineNum);
+      this.checkImportErrors(raw, lineNum);
+      this.checkControlFlow(raw, lineNum, inLoop);
+
+      if ((clean.startsWith('for ') || clean.startsWith('while ')) && clean[clean.length - 1] === ':') {
+        inLoop = true;
+      }
+    }
+
+    // PASS 3: Scope & symbol analysis
+    for (let i = 0; i < this.lines.length; i++) {
+      const raw = this.lines[i];
+      const clean = trim(raw);
+      const lineNum = i + 1;
+      if (!clean || clean[0] === '#') continue;
+
+      const indent = getIndent(raw);
+
+      while (this.scopeStack.length > 1 &&
+             indent <= this.scopeStack[this.scopeStack.length - 1].indentLevel) {
+        this.scopeStack.pop();
+      }
+      this.currentScope = this.scopeStack[this.scopeStack.length - 1];
+
+      this.checkVariableDefinition(raw, lineNum, this.currentScope);
+
+      // Block header ends with colon
+      if (clean[clean.length - 1] === ':') {
+        this.scopeCounter++;
+        const stype = this.detectScopeType(clean);
+        let label = clean.substring(0, clean.length - 1);
+        if (label.length > 30) label = label.substring(0, 27) + '...';
+        const sname = 'Block_' + this.scopeCounter + ' [' + label + ']';
+
+        const ns = {
+          scopeName: sname,
+          scopeType: stype,
+          indentLevel: indent + 4,
+          symbols: {},
+          parameters: [],
+          parent: this.currentScope,
+          children: []
+        };
+        this.allScopes.push(ns);
+        this.currentScope.children.push(ns);
+
+        if (stype === 'function') this.parseFunctionParams(clean, ns, lineNum);
+
+        this.scopeStack.push(ns);
+        this.currentScope = ns;
+
+        // Loop variable extraction
+        if (stype === 'loop' && clean.startsWith('for ')) {
+          const fp = clean.indexOf('for ');
+          const ip = clean.indexOf(' in ');
+          if (fp !== -1 && ip !== -1) {
+            const vpart = trim(clean.substring(fp + 4, ip - fp - 4).trim());
+            for (let v of vpart.split(',')) {
+              v = trim(v);
+              if (v && v !== 'self') this.insertSymbol(v, '<loop_iter>', 'loop_var', lineNum);
+            }
+          }
+        }
+        continue;
+      }
+
+      // Return
+      if (clean.startsWith('return')) {
+        const rv = trim(clean.substring(6));
+        this.insertSymbol('__return__', rv, inferType(rv), lineNum);
+        continue;
+      }
+
+      // Import
+      if (clean.startsWith('import') || clean.startsWith('from')) {
+        this.insertSymbol(clean, '<module>', 'module', lineNum);
+        continue;
+      }
+
+      // Assignment
+      const eqPos = clean.indexOf('=');
+      if (eqPos > 0 && eqPos + 1 < clean.length && clean[eqPos + 1] !== '=') {
+        const prev = clean[eqPos - 1];
+        const isAug = ['+','-','*','/','%'].includes(prev);
+        let lhs = trim(clean.substring(0, isAug ? eqPos - 1 : eqPos));
+        const rhs = trim(clean.substring(eqPos + 1));
+
+        if (!lhs) continue;
+
+        if (lhs.includes(',')) {
+          for (let v of lhs.split(',')) {
+            v = trim(v);
+            if (v && isIdentifierStart(v[0])) this.insertSymbol(v, rhs, 'unpacked', lineNum);
+          }
+        } else if (isIdentifierStart(lhs[0]) && !lhs.includes('.') && !lhs.includes('[')) {
+          const t = isAug ? 'augmented' : inferType(rhs);
+          this.insertSymbol(lhs, rhs, t, lineNum);
+        }
+      }
+    }
+
+    this.validateScopes();
+  }
+}
+
+// =========================================================================
+// UI FUNCTIONS
+// =========================================================================
+
+function analyze() {
+  const source = document.getElementById('codeInput').value;
+  if (!source.trim()) { alert('Please enter some Python code first.'); return; }
+
+  const analyzer = new PythonAnalyzer(source);
+  analyzer.analyze();
+
+  displayTokens(analyzer);
+  displaySymbols(analyzer);
+  displayDiags(analyzer);
+  displayStats(analyzer);
+
+  document.getElementById('statsBar').style.display = 'flex';
+}
+
+function displayTokens(analyzer) {
+  const container = document.getElementById('tokenOutput');
+  const empty = document.getElementById('emptyTokens');
+  container.style.display = 'block';
+  empty.style.display = 'none';
+
+  let html = '<div class="section-title">Scanner reads tokens</div>';
+
+  const codeLines = analyzer.lines;
+  let lineGroups = {};
+  for (const t of analyzer.allTokens) {
+    if (!lineGroups[t.line]) lineGroups[t.line] = [];
+    lineGroups[t.line].push(t);
+  }
+
+  const sortedLines = Object.keys(lineGroups).map(Number).sort((a, b) => a - b);
+  for (const ln of sortedLines) {
+    html += '<div class="token-header-line">[ Line ' + ln + ' ]</div>';
+    html += '<div class="token-line">';
+    // Show the actual code line for reference
+    if (ln <= codeLines.length) {
+      html += '<div style="color:var(--text-dim);font-size:.75rem;margin-bottom:4px;padding:2px 0">' +
+              escapeHtml(trim(codeLines[ln - 1])) + '</div>';
+    }
+    for (const t of lineGroups[ln]) {
+      const cls = tokenTypeClass(t.type);
+      html += '<span class="token-entry"><span class="token-val">' + escapeHtml(t.value) + '</span> <span class="token-type ' + cls + '">' + tokenTypeName(t.type) + '</span></span>';
+    }
+    html += '</div>';
+  }
+
+  if (analyzer.allTokens.length === 0) {
+    html += '<div class="diag-empty">No tokens found — code may be empty or contain only comments</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function displaySymbols(analyzer) {
+  const container = document.getElementById('symbolOutput');
+  const empty = document.getElementById('emptySymbols');
+  container.style.display = 'block';
+  empty.style.display = 'none';
+
+  let html = '';
+  let totalSymbols = 0;
+
+  for (const sc of analyzer.allScopes) {
+    const symCount = Object.keys(sc.symbols).length;
+    totalSymbols += symCount;
+
+    html += '<div class="scope-header">';
+    html += '<strong>' + escapeHtml(sc.scopeName) + '</strong>';
+    html += '<div class="scope-meta">Type: ' + sc.scopeType + ' &bull; Depth: ' + (sc.indentLevel / 4) + ' level(s)';
+    if (sc.parameters.length > 0) {
+      html += ' &bull; Params: ' + sc.parameters.map(p => escapeHtml(p)).join(', ');
+    }
+    html += '</div></div>';
+
+    if (symCount === 0) {
+      html += '<div style="color:var(--text-dim);font-size:.8rem;padding:4px 10px;margin-bottom:8px">[No variables declared in this scope]</div>';
+    } else {
+      html += '<table class="sym-table">';
+      html += '<tr><th>Variable</th><th>Type</th><th>Value</th><th>Line</th><th>Uses</th><th>Reassigned?</th></tr>';
+      for (const name in sc.symbols) {
+        const s = sc.symbols[name];
+        html += '<tr><td>' + escapeHtml(s.name) + '</td><td>' + escapeHtml(s.inferredType) + '</td><td>' + escapeHtml(s.value) + '</td><td>' + s.declaredLine + '</td><td>' + s.usageCount + '</td><td>' + (s.isMutable ? 'Yes' : 'No') + '</td></tr>';
+      }
+      html += '</table>';
+    }
+  }
+
+  document.getElementById('statSymbols').textContent = totalSymbols;
+  container.innerHTML = html;
+}
+
+function displayDiags(analyzer) {
+  const container = document.getElementById('diagOutput');
+  const empty = document.getElementById('emptyDiags');
+  container.style.display = 'block';
+  empty.style.display = 'none';
+
+  let html = '';
+  const errors = analyzer.diagnostics.filter(d => d.level === 'error');
+  const warnings = analyzer.diagnostics.filter(d => d.level === 'warn');
+
+  if (errors.length > 0) {
+    html += '<div class="section-title">Errors (' + errors.length + ')</div>';
+    for (let i = 0; i < errors.length; i++) {
+      const d = errors[i];
+      html += '<div class="diag-item error">';
+      html += '<div class="diag-level">[' + (i + 1) + '] Error &bull; Line ' + d.lineNumber + (d.column > 0 ? ', Col ' + d.column : '') + '</div>';
+      html += '<div class="diag-msg">' + escapeHtml(d.message) + '</div>';
+      if (d.codeSnippet) html += '<div class="diag-code">' + escapeHtml(trim(d.codeSnippet)) + '</div>';
+      if (d.recovery) html += '<div class="diag-fix">Fix: ' + escapeHtml(d.recovery) + '</div>';
+      html += '</div>';
+    }
+  }
+
+  if (warnings.length > 0) {
+    html += '<div class="section-title" style="margin-top:16px">Warnings (' + warnings.length + ')</div>';
+    for (let i = 0; i < warnings.length; i++) {
+      const d = warnings[i];
+      html += '<div class="diag-item warn">';
+      html += '<div class="diag-level">[' + (i + 1) + '] Warning &bull; Line ' + d.lineNumber + (d.column > 0 ? ', Col ' + d.column : '') + '</div>';
+      html += '<div class="diag-msg">' + escapeHtml(d.message) + '</div>';
+      if (d.codeSnippet) html += '<div class="diag-code">' + escapeHtml(trim(d.codeSnippet)) + '</div>';
+      if (d.recovery) html += '<div class="diag-fix">Fix: ' + escapeHtml(d.recovery) + '</div>';
+      html += '</div>';
+    }
+  }
+
+  if (errors.length === 0 && warnings.length === 0) {
+    html += '<div class="diag-empty">No errors or warnings detected</div>';
+  }
+
+  container.innerHTML = html;
+}
+
+function displayStats(analyzer) {
+  document.getElementById('statTokens').textContent = analyzer.allTokens.length;
+  const symCount = analyzer.allScopes.reduce((sum, sc) => sum + Object.keys(sc.symbols).length, 0);
+  document.getElementById('statSymbols').textContent = symCount;
+  document.getElementById('statErrors').textContent = analyzer.diagnostics.filter(d => d.level === 'error').length;
+  document.getElementById('statWarnings').textContent = analyzer.diagnostics.filter(d => d.level === 'warn').length;
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function loadExample() {
+  const example = `x = 10
+name = "Alice"
+items = [1, 2, 3]
+
+def greet(person, age=0):
+    message = "Hello"
+    return message
+
+for i in range(5)
+    total = i * 2
+
+print(undefined_var)
+break`;
+  document.getElementById('codeInput').value = example;
+  syncGutter();
+  analyze();
+}
+
+function clearAll() {
+  document.getElementById('codeInput').value = '';
+  syncGutter();
+  document.getElementById('tokenOutput').style.display = 'none';
+  document.getElementById('emptyTokens').style.display = 'block';
+  document.getElementById('symbolOutput').style.display = 'none';
+  document.getElementById('emptySymbols').style.display = 'block';
+  document.getElementById('diagOutput').style.display = 'none';
+  document.getElementById('emptyDiags').style.display = 'block';
+  document.getElementById('statsBar').style.display = 'none';
+}
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+  syncGutter();
+  // Enable Ctrl+Enter to analyze
+  document.getElementById('codeInput').addEventListener('keydown', e => {
+    if (e.ctrlKey && e.key === 'Enter') analyze();
+  });
+});
+</script>
+</body>
+</html>
