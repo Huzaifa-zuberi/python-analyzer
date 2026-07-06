@@ -1,5 +1,17 @@
 # Python Analyzer v3.0
 
+[![CI](https://github.com/Huzaifa-zuberi/python-analyzer/actions/workflows/ci.yml/badge.svg)](https://github.com/Huzaifa-zuberi/python-analyzer/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.8%2B-blue?logo=python)](https://python.org)
+[![License](https://img.shields.io/badge/License-MIT-success)](LICENSE)
+![Last Commit](https://img.shields.io/github/last-commit/Huzaifa-zuberi/python-analyzer)
+![Stars](https://img.shields.io/github/stars/Huzaifa-zuberi/python-analyzer?style=social)
+
+**Repo:** [Huzaifa-zuberi/python-analyzer](https://github.com/Huzaifa-zuberi/python-analyzer)
+
+## Screenshots
+
+*(Add a screenshot of the frontend here — open `frontend/index.html` in your browser)*
+
 A Python code analyzer with enhanced error detection, symbol table generation, and token analysis. Features both a **C++ command-line tool** and a **browser-based frontend** (JavaScript).
 
 ## Project Structure
